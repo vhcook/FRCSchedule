@@ -8,6 +8,7 @@ Created on Sat Aug 15 14:08:51 2015
 from bs4 import BeautifulSoup
 from urllib import request
 from pprint import pprint
+import datetime
 
 
 
@@ -37,18 +38,18 @@ def get_dates(datepage):
     
     soup = BeautifulSoup(datepage, 'html.parser')
     eventitems = ['type', 'name', 'venue', 'location', 'dates']    
-    datedict = {}
+    datelist = []
     
     datetablerows = soup.find_all('tr', bgcolor='#FFFFFF')
-   
-    week0 = '24-Feb - 27-Feb-2016'    
     
+    week0saturday = datetime.date(2016,2,27)
+  
     for row in datetablerows:
         eventdict = {}
         
         items = row.find_all('td')
         
-        print('\nEvent Name', items[1].a.contents)
+        print('Event Name', items[1].a.contents)
 
         for idx in range(len(eventitems)):
             
@@ -63,16 +64,48 @@ def get_dates(datepage):
             else: #name is formatted differently
                 eventdict[eventitems[idx]] = items[idx].a.contents[0]
             
-        pprint(eventdict)
+        eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
+        datelist.append(eventdict.copy())
     
-    print()
+    pprint(datelist)
     
-    return datedict
+    return datelist
 
+def getweeknum(eventdates, firstsat):
+    '''
+    eventdates is a string formatted:
+    02-Mar - 05-Mar-2016  
+    dd-mmm - dd-mmm-yyyy
+    01234567890123456789
+    '''
+    firstweek = 0  #special for 2016    
+    
+    
+    endday = datetime.datetime.strptime(eventdates[9:], '%d-%b-%Y')
+    
+    endday = datetime.date(endday.year, endday.month, endday.day)
+        
+    for i in (range(8)):
+        dayssince1 = 7 * i
+        
+        currentsat = firstsat + datetime.timedelta(dayssince1)
+        #print(currentsat)
+        
+        #Event end runs Tuesday to Monday
+        weekstart = currentsat - datetime.timedelta(4)
+        weekend = currentsat + datetime.timedelta(2)
+        
+        #print(type(weekstart), type(endday), type(weekend))
+        
+        if weekstart < endday < weekend:
+            #print('got it')
+            return i
+        
+        
 
-
-
-
+    print('Error: No week found', endday)
+    return None
+    
 
         
 def test():
@@ -82,7 +115,7 @@ def test():
         htmldata = file.read()
         #print(htmldata)
         
-        datedict = get_dates(htmldata)
+        eventlist = get_dates(htmldata)
     
    
 test()
