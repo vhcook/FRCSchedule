@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from urllib import request
 from pprint import pprint
 import datetime
+import requests
 
 
 
@@ -49,7 +50,7 @@ def get_dates(datepage):
         
         items = row.find_all('td')
         
-        print('Event Name', items[1].a.contents)
+        #print('Event Name', items[1].a.contents)
 
         for idx in range(len(eventitems)):
             
@@ -67,7 +68,7 @@ def get_dates(datepage):
         eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
         datelist.append(eventdict.copy())
     
-    pprint(datelist)
+    #pprint(datelist)
     
     return datelist
 
@@ -105,10 +106,84 @@ def getweeknum(eventdates, firstsat):
 
     print('Error: No week found', endday)
     return None
-    
 
+def prepmaprequest(orig,destlist):
+    '''(str, list of str)
+    
+    '''
+
+    matrixrqst = 'https://maps.googleapis.com/maps/api/distancematrix/json?'
+    
+    origins = 'origins=' + space2plus(orig)
+    
+    destinations = 'destinations=' + space2plus(pipdelim(destlist))
+    
+    keyfile = open('C:\\Users\\stat\\Documents\\SecretSquirrel\\googleapikey.txt','r')
+    key = 'key=' + keyfile.read()   
+    keyfile.close()
+    
+    units = 'units=imperial'
+    
+    maprequest = matrixrqst + '&'.join([origins, destinations, units, key])
+    
+    return maprequest
+
+def space2plus(urlstring):
+    '''(str)-> str
+    Replaces all spaces in the input string with + characters for inclusion in a url.
+    '''
+    #find the unicode line break
+    
+    linebreak = urlstring.find(u'\xa0')
+    
+    intermediate = urlstring.replace(' ', '+').replace(',','')
+    
+    result = intermediate.replace(u'\xa0','')
+    
+    return result
+
+def pipdelim(loclist):
+    '''(list of str)-> str
+    Convert location list to a pipe delimited string
+    '''
+
+    result = '|'.join(loclist)   
+    
+    return result
         
-def test():
+
+def formLocationList(eventlist):
+    '''(list of dictionary) -> list of str
+    
+    Return the regional locations as a list.
+    '''
+
+    loclist = []
+        
+    for event in eventlist:
+        loclist.append(event['location'])    
+
+    return loclist
+
+
+def getdistancematrix(url):
+    '''(str) -> json object
+    '''
+    
+    response = requests.get(url)
+    
+    if response.status_code == 200:
+        print(response.json())
+
+
+
+
+
+
+
+
+
+def parsefrcschedule():
     
     with open('currentsched.html') as file:
         
@@ -116,7 +191,15 @@ def test():
         #print(htmldata)
         
         eventlist = get_dates(htmldata)
-    
+        print('Data found for', len(eventlist), 'events\n')
+        
+        
+        regionalLocs = formLocationList(eventlist)        
+        maprequest = prepmaprequest('Kansas City, MO', regionalLocs)
+        
+        dmatrix = getdistancematrix(maprequest)
+            
+        #print(maprequest)
    
-test()
+parsefrcschedule()
 
