@@ -56,7 +56,7 @@ def get_dates(datepage):
             
             if idx != 1:
                 if len(items[idx].contents) == 1:
-                    eventdict[eventitems[idx]] = items[idx].contents[0].strip('\n\t')
+                    eventdict[eventitems[idx]] = items[idx].contents[0].strip('\n\t').replace(u'\xa0','')
                 else:
                     i = str(items[idx].contents[1]).lstrip('<em>').rstrip('</em>') 
                     i = i + ' ' + items[idx].contents[3].strip('\n\t')
@@ -136,10 +136,8 @@ def space2plus(urlstring):
     
     linebreak = urlstring.find(u'\xa0')
     
-    intermediate = urlstring.replace(' ', '+').replace(',','')
-    
-    result = intermediate.replace(u'\xa0','')
-    
+    result = urlstring.replace(' ', '+').replace(',','')
+       
     return result
 
 def pipdelim(loclist):
@@ -172,8 +170,10 @@ def getdistancematrix(url):
     
     response = requests.get(url)
     
+    print('Sending mileage matrix query to google\n')
+    
     if response.status_code == 200:
-        print(response.json())
+        return response.json()
 
 
 
@@ -192,14 +192,14 @@ def parsefrcschedule():
         
         eventlist = get_dates(htmldata)
         print('Data found for', len(eventlist), 'events\n')
-        
+        pprint(eventlist)
         
         regionalLocs = formLocationList(eventlist)        
         maprequest = prepmaprequest('Kansas City, MO', regionalLocs)
         
         dmatrix = getdistancematrix(maprequest)
             
-        #print(maprequest)
+        pprint(dmatrix)
    
 parsefrcschedule()
 
