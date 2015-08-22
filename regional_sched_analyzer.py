@@ -11,7 +11,9 @@ from pprint import pprint
 import datetime
 import requests
 
+year = 2016
 
+blockedweeks = [3,4] #weeks of Barstow Spring Break
 
 def get_schedule(year):
     
@@ -28,7 +30,7 @@ def get_schedule(year):
     
 def makefile():
     
-    year = '2016'
+    #year = '2016'
     
     with open('currentsched.html','w') as outfile:
         soup = BeautifulSoup(get_schedule(year), 'html.parser')
@@ -56,7 +58,7 @@ def get_dates(datepage):
             
             if idx != 1:
                 if len(items[idx].contents) == 1:
-                    eventdict[eventitems[idx]] = items[idx].contents[0].strip('\n\t').replace(u'\xa0','')
+                    eventdict[eventitems[idx]] = items[idx].contents[0].strip('\n\t').replace(u'\xa0',',')
                 else:
                     i = str(items[idx].contents[1]).lstrip('<em>').rstrip('</em>') 
                     i = i + ' ' + items[idx].contents[3].strip('\n\t')
@@ -148,7 +150,7 @@ def pipdelim(loclist):
     result = '|'.join(loclist)   
     
     return result
-        
+
 
 def formLocationList(eventlist):
     '''(list of dictionary) -> list of str
@@ -158,8 +160,12 @@ def formLocationList(eventlist):
 
     loclist = []
         
+    print('Non-regional or duplicate:')
     for event in eventlist:
-        loclist.append(event['location'])    
+        if event['type'] == 'Regional' and event['location'] not in loclist:
+            loclist.append(event['location'])
+        else:
+            print(" ",event['location'],event['type'])
 
     return loclist
 
@@ -175,12 +181,63 @@ def getdistancematrix(url):
     if response.status_code == 200:
         return response.json()
 
+def mergeEventMilage(eventlist, milagemtx):
+    '''(list of dict, JSON object) -> list of dict
+    
+    This function will find the mileage and drive time for each event, 
+    returning a record like this:
+     [{'dates': '31-Mar - 02-Apr-2016',
+       'distance': '993 mi',
+       'distmeters': 1598704
+       'duration': '14 hours 47 mins',
+       'location': 'Oregon City, OR USA',
+       'name': 'PNW District - Oregon City Event',
+       'status': 'OK',
+       'type': 'Pacific Northwest District Event',
+       'venue': 'Clackamas Academy of Industrial Sciences',
+       'week': 5},{...}]
+       
+     Records containing non-regional events will not gain distance, duration, and status
+     information
+     Records containing status other than ok will default to 12000 miles and 171 hours
+     Which is roughly half the circumferance of the earth and the drive time
+     to get there at 70 mph (not accounting for minor inconveniences like oceans)
+    '''
+    for eventidx in range(len(eventlist)):
+        loc = eventlist[eventidx]['location']
+        
+        problemlocs = {'St. Louis, MO, USA': 'Saint Louis, MO, USA',
+                       'Tel Aviv, TA, Israel': "HaTa'asiya Street, Tel Aviv-Yafo, Israel"}
+        
+        if loc in problemlocs:
+            loc = problemlocs[loc]
+        
+        if loc in milagemtx['destination_addresses']:
+            idx = milagemtx['destination_addresses'].index(loc)
+            #print(loc, idx)
+            status = milagemtx['rows'][0]['elements'][idx]['status']
+            if status == 'OK':
+                distance = milagemtx['rows'][0]['elements'][idx]['distance']['text']
+                dm = milagemtx['rows'][0]['elements'][idx]['distance']['value']
+                drivetime = milagemtx['rows'][0]['elements'][idx]['duration']['text']
+                #print(loc, distance, drivetime)
+            else:
+                #print(loc, milagemtx['rows'][0]['elements'][idx]['status'])
+                distance = '1200 mi'
+                drivetime = '7 days 3 hours'
+                dm = 1931210
+            
+            eventlist[eventidx]['distance'] = distance
+            eventlist[eventidx]['distmeters'] = dm            
+            eventlist[eventidx]['duration'] = drivetime
+            eventlist[eventidx]['status'] = status
+                
+        elif eventlist[eventidx]['type'] == 'Regional':
+            print(" ",loc, 'not found in milagemtx')
 
-
-
-
-
-
+    return eventlist
+    ###COOK
+    ### Next step is to do pandas to get the easy ability to generate a results list
 
 
 def parsefrcschedule():
@@ -192,14 +249,19 @@ def parsefrcschedule():
         
         eventlist = get_dates(htmldata)
         print('Data found for', len(eventlist), 'events\n')
-        pprint(eventlist)
+        #pprint(eventlist)
         
         regionalLocs = formLocationList(eventlist)        
+        print('\nPreparing mileage search for', len(regionalLocs), 'Regional events\n')
         maprequest = prepmaprequest('Kansas City, MO', regionalLocs)
         
-        dmatrix = getdistancematrix(maprequest)
-            
-        pprint(dmatrix)
+        dmatrix = getdistancematrix(maprequest)           
+        #pprint(dmatrix)
+        
+        print('Merging distance and event information\n')
+        mergeEventMilage(eventlist, dmatrix)
+        
+        pprint(eventlist)
    
 parsefrcschedule()
 
