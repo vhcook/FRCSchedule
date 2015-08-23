@@ -10,10 +10,13 @@ from urllib import request
 from pprint import pprint
 import datetime
 import requests
+import pandas
 
-year = 2016
+year = '2016'
+home = '11511 State Line Road, Kansas City, MO'
 
 blockedweeks = [3,4] #weeks of Barstow Spring Break
+kcweek = 2
 
 def get_schedule(year):
     
@@ -68,7 +71,10 @@ def get_dates(datepage):
                 eventdict[eventitems[idx]] = items[idx].a.contents[0]
             
         eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
-        datelist.append(eventdict.copy())
+        eventdict['name'] = trimnames(eventdict['name'])
+        
+        if eventdict['type'] == 'Regional':
+            datelist.append(eventdict.copy())
     
     #pprint(datelist)
     
@@ -160,7 +166,7 @@ def formLocationList(eventlist):
 
     loclist = []
         
-    print('Non-regional or duplicate:')
+    print('Duplicate:')
     for event in eventlist:
         if event['type'] == 'Regional' and event['location'] not in loclist:
             loclist.append(event['location'])
@@ -223,9 +229,9 @@ def mergeEventMilage(eventlist, milagemtx):
                 #print(loc, distance, drivetime)
             else:
                 #print(loc, milagemtx['rows'][0]['elements'][idx]['status'])
-                distance = '1200 mi'
+                distance = '12000 mi'
                 drivetime = '7 days 3 hours'
-                dm = 1931210
+                dm = 19312128
             
             eventlist[eventidx]['distance'] = distance
             eventlist[eventidx]['distmeters'] = dm            
@@ -238,9 +244,50 @@ def mergeEventMilage(eventlist, milagemtx):
     return eventlist
     ###COOK
     ### Next step is to do pandas to get the easy ability to generate a results list
+def trimnames(name):
+    '''
+    Get rid of sponsorship and other stuff that makes the table ugly
+    '''
+    result = name[:name.find('Regional') + len('Regional')]
+    
+    return result
+
+def evaluatedates(eventlist):
+    '''
+    Create a pandas dataframe and pull out the regionals.
+    
+    Sort the regionals by week and distance.
+    
+    Print out the names of the regionals in blocked weeks.
+    
+    Print out a table of the remaining regionals by week and distance.
+    '''
+    
+    df = pandas.DataFrame(eventlist)
+    
+    
+    blockedweeks.append(kcweek)    
+    
+    possibles = df[~(df.week.isin(blockedweeks))]
+    
+    suspect = df[(df.week == kcweek)]
+    
+    print('Spring Break Events:\n')    
+    print(df[(df.week.isin(blockedweeks))]['name'])
+    
+    print('\nKC Week events:\n')
+    print(suspect[['week', 'name', 'distance', 'distmeters']].sort_index(by=['distmeters', 'week']))
+    
+    print('\nPossible events:\n')
+    print(possibles[['week', 'name', 'distance', 'distmeters']].sort_index(by=['distmeters', 'week']))
+    
 
 
-def parsefrcschedule():
+def test():
+    '''
+    Test off a precreated file
+    '''
+    makefile()
     
     with open('currentsched.html') as file:
         
@@ -259,9 +306,36 @@ def parsefrcschedule():
         #pprint(dmatrix)
         
         print('Merging distance and event information\n')
-        mergeEventMilage(eventlist, dmatrix)
+        eventlist = mergeEventMilage(eventlist, dmatrix)
         
-        pprint(eventlist)
-   
+        final = evaluatedates(eventlist)
+        #pprint(eventlist)
+
+def parsefrcschedule():
+        
+    with open('currentsched.html') as file:
+        
+        htmldata = file.read()
+        #print(htmldata)
+        
+        eventlist = get_dates(htmldata)
+        print('Data found for', len(eventlist), 'Regional events\n')
+        #pprint(eventlist)
+        
+        regionalLocs = formLocationList(eventlist)        
+        print('\nPreparing mileage search for', len(regionalLocs), 'Regional events\n')
+        maprequest = prepmaprequest(home, regionalLocs)
+        
+        dmatrix = getdistancematrix(maprequest)           
+        #pprint(dmatrix)
+        
+        print('Merging distance and event information\n')
+        eventlist = mergeEventMilage(eventlist, dmatrix)
+        
+        final = evaluatedates(eventlist)
+        #pprint(eventlist)
+    
+    
+    
 parsefrcschedule()
 
