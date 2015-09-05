@@ -23,7 +23,7 @@ def get_schedule(year):
     baseurl = 'https://my.usfirst.org/myarea/index.lasso?event_type=FRC&year='
     
     fullurl = baseurl + year
-    
+    print('Accessing URL', fullurl)
     firstpage = request.urlopen(fullurl)   
     #Let's error out right now if the FIRST site is not cooperating
     assert firstpage.status == 200  
@@ -33,11 +33,11 @@ def get_schedule(year):
     
 def makefile():
     
-    #year = '2016'
-    
     with open('currentsched.html','w') as outfile:
         soup = BeautifulSoup(get_schedule(year), 'html.parser')
         outfile.write(str(soup.prettify))
+        
+        print('File written')
         
     
 def get_dates(datepage):
@@ -71,9 +71,11 @@ def get_dates(datepage):
                 eventdict[eventitems[idx]] = items[idx].a.contents[0]
             
         eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
-        eventdict['name'] = trimnames(eventdict['name'])
+        #print(eventdict)
+        
         
         if eventdict['type'] == 'Regional':
+            eventdict['name'] = trimnames(eventdict['name'])
             datelist.append(eventdict.copy())
     
     #pprint(datelist)
@@ -266,20 +268,22 @@ def evaluatedates(eventlist):
     df = pandas.DataFrame(eventlist)
     
     
-    blockedweeks.append(kcweek)    
+    suspect = df[(df.week == kcweek)].sort_index(by=['distmeters', 'week'])
     
-    possibles = df[~(df.week.isin(blockedweeks))]
-    
-    suspect = df[(df.week == kcweek)]
+    blocked = df[(df.week.isin(blockedweeks))].sort_index(by=['distmeters', 'week'])
     
     print('Spring Break Events:\n')    
-    print(df[(df.week.isin(blockedweeks))]['name'])
+    print(blocked[['week', 'name', 'distance', 'location']])
     
     print('\nKC Week events:\n')
-    print(suspect[['week', 'name', 'distance', 'distmeters']].sort_index(by=['distmeters', 'week']))
+    print(suspect[['week', 'name', 'distance', 'location']])
+
+    blockedweeks.append(kcweek)    
     
-    print('\nPossible events:\n')
-    print(possibles[['week', 'name', 'distance', 'distmeters']].sort_index(by=['distmeters', 'week']))
+    possibles = df[~(df.week.isin(blockedweeks))].sort_index(by=['distmeters', 'week'])
+    
+    print('\nPossible events:\n')        
+    print(possibles[['week', 'name', 'distance', 'location']])
     
 
 
@@ -336,6 +340,6 @@ def parsefrcschedule():
         #pprint(eventlist)
     
     
-    
+makefile()    
 parsefrcschedule()
 
