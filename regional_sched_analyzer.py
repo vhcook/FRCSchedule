@@ -18,6 +18,8 @@ home = '11511 State Line Road, Kansas City, MO'
 blockedweeks = [3,4] #weeks of Barstow Spring Break
 kcweek = 2
 
+
+ 
 def get_schedule(year):
     
     baseurl = 'https://my.usfirst.org/myarea/index.lasso?event_type=FRC&year='
@@ -69,12 +71,10 @@ def get_dates(datepage):
 
             else: #name is formatted differently
                 eventdict[eventitems[idx]] = items[idx].a.contents[0]
-            
-        eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
-        #print(eventdict)
-        
+    
         
         if eventdict['type'] == 'Regional':
+            eventdict['week'] = getweeknum(eventdict['dates'], week0saturday)
             eventdict['name'] = trimnames(eventdict['name'])
             datelist.append(eventdict.copy())
     
@@ -214,8 +214,8 @@ def mergeEventMilage(eventlist, milagemtx):
     for eventidx in range(len(eventlist)):
         loc = eventlist[eventidx]['location']
         
-        problemlocs = {'St. Louis, MO, USA': 'Saint Louis, MO, USA',
-                       'Tel Aviv, TA, Israel': "HaTa'asiya Street, Tel Aviv-Yafo, Israel"}
+        problemlocs = {'St. Louis, MO, USA': 'St Louis, MO, USA',
+                       'Tel Aviv, TA, Israel': "Tel Aviv, TA, Israel"}
         
         if loc in problemlocs:
             loc = problemlocs[loc]
@@ -231,7 +231,7 @@ def mergeEventMilage(eventlist, milagemtx):
                 #print(loc, distance, drivetime)
             else:
                 #print(loc, milagemtx['rows'][0]['elements'][idx]['status'])
-                distance = '12000 mi'
+                distance = 'NaN'
                 drivetime = '7 days 3 hours'
                 dm = 19312128
             
@@ -265,26 +265,87 @@ def evaluatedates(eventlist):
     Print out a table of the remaining regionals by week and distance.
     '''
     
-    df = pandas.DataFrame(eventlist)
-    
+    df = pandas.DataFrame(eventlist)    
     
     suspect = df[(df.week == kcweek)].sort_index(by=['distmeters', 'week'])
     
     blocked = df[(df.week.isin(blockedweeks))].sort_index(by=['distmeters', 'week'])
     
-    print('Spring Break Events:\n')    
+    print('Spring Break Events:', len(blocked), '\n')    
     print(blocked[['week', 'name', 'distance', 'location']])
     
-    print('\nKC Week events:\n')
+    print('\nKC Week events:', len(suspect), '\n')
     print(suspect[['week', 'name', 'distance', 'location']])
 
     blockedweeks.append(kcweek)    
     
     possibles = df[~(df.week.isin(blockedweeks))].sort_index(by=['distmeters', 'week'])
     
-    print('\nPossible events:\n')        
+    print('\nPossible events:', len(possibles), '\n')        
     print(possibles[['week', 'name', 'distance', 'location']])
     
+def missingevents(eventlist):
+    stdevents = ['Alamo Regional',
+                 'Arizona East Regional',
+                 'Arizona West Regional', 
+                 'Arkansas Rock City Regional',
+                 'Australia Regional',
+                 'Bayou Regional',
+                 'Buckeye Regional',
+                 'Central Illinois Regional',
+                 'Central Valley Regional',
+                 'Colorado Regional',
+                 'Dallas Regional',
+                 'Finger Lakes Regional',
+                 'FRC Festival de Robotique - Montreal Regional', 
+                 'Greater Kansas City Regional',
+                 'Greater Pittsburgh Regional',
+                 'Greater Toronto Central Regional', 
+                 'Greater Toronto East Regional',
+                 'Hawaii Regional',
+                 'Hub City Regional',
+                 'Inland Empire Regional',
+                 'Israel Regional',
+                 'Lake Superior Regional',
+                 'Las Vegas Regional',
+                 'Lone Star Regional',
+                 'Los Angeles Regional', 
+                 'Mexico City Regional',
+                 'Midwest Regional',
+                 'Minnesota 10000 Lakes Regional', 
+                 'Minnesota North Star Regional',
+                 'New York City Regional', 
+                 'New York Tech Valley Regional',
+                 'North Bay Regional',
+                 'Northern Lights Regional',
+                 'Oklahoma Regional',
+                 'Orlando Regional',
+                 'Palmetto Regional',
+                 'Queen City Regional',
+                 'Sacramento Regional',
+                 'San Diego Regional',
+                 'SBPLI Long Island Regional',
+                 'Silicon Valley Regional',
+                 'Smoky Mountains Regional',
+                 'South Florida Regional',
+                 'St. Louis Regional',
+                 'Utah Regional',
+                 'Ventura Regional',
+                 'Waterloo Regional', 
+                 'Windsor Essex Great Lakes Regional',
+                 'Wisconsin Regional']
+
+
+    
+    for event in eventlist:
+        if event['name'] in stdevents:
+            stdevents.remove(event['name'])
+ 
+    print('\nEvents not on current schedule:', len(stdevents))           
+    
+    pprint(stdevents)
+    
+    print()
 
 
 def test():
@@ -322,6 +383,8 @@ def parsefrcschedule():
         htmldata = file.read()
         #print(htmldata)
         
+        pandas.set_option('display.width', 1000)
+             
         eventlist = get_dates(htmldata)
         print('Data found for', len(eventlist), 'Regional events\n')
         #pprint(eventlist)
@@ -336,7 +399,10 @@ def parsefrcschedule():
         print('Merging distance and event information\n')
         eventlist = mergeEventMilage(eventlist, dmatrix)
         
+                
         final = evaluatedates(eventlist)
+        
+        missingevents(eventlist)
         #pprint(eventlist)
     
     
